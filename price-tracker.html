@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가격 추적기 · 항공권 / 호텔</title>
+<style>
+:root{
+  --ink:#14263a;
+  --ink-soft:#33465c;
+  --paper:#f4f6f8;
+  --surface:#ffffff;
+  --muted:#6b7a8d;
+  --line:#dde3e9;
+  --line-soft:#eaeef2;
+  --buy:#0f7a5a;
+  --buy-bg:#e6f4ef;
+  --wait:#9a7318;
+  --wait-bg:#fbf3e0;
+  --hurry:#b4402b;
+  --hurry-bg:#fbeae6;
+  --idle:#7b8794;
+  --idle-bg:#eef1f4;
+  --mono:'SF Mono',ui-monospace,Menlo,Consolas,'D2Coding',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px}
+
+/* ---------- header ---------- */
+.masthead{
+  border-bottom:2px solid var(--ink);
+  padding-bottom:14px;margin-bottom:8px;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.masthead h1{
+  font-size:23px;font-weight:700;margin:0;letter-spacing:-.02em;
+}
+.masthead .eyebrow{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px;
+}
+.masthead .tools{display:flex;gap:7px;flex-wrap:wrap}
+
+/* ---------- buttons ---------- */
+button{font-family:inherit;font-size:13px;cursor:pointer;border-radius:6px;transition:.13s}
+.btn{
+  background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);
+  padding:7px 13px;font-weight:500;
+}
+.btn:hover{border-color:var(--ink);color:var(--ink)}
+.btn-primary{background:var(--ink);border:1px solid var(--ink);color:#fff;padding:9px 18px;font-weight:600}
+.btn-primary:hover{background:#0b1a2a}
+.btn-ghost{background:none;border:none;color:var(--muted);padding:4px 6px;font-size:12px}
+.btn-ghost:hover{color:var(--hurry);text-decoration:underline}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{
+  outline:2px solid var(--ink);outline-offset:2px
+}
+
+/* ---------- notice strip ---------- */
+.strip{
+  font-size:12.5px;color:var(--muted);margin:0 0 26px;
+  display:flex;align-items:center;gap:7px;
+}
+.strip .dot{width:5px;height:5px;border-radius:50%;background:var(--buy);flex:none}
+
+/* ---------- deadline banner ---------- */
+.deadline{
+  background:var(--wait-bg);border-left:3px solid var(--wait);
+  padding:12px 16px;margin-bottom:22px;border-radius:0 7px 7px 0;font-size:13.5px;color:#6f5311;
+}
+.deadline b{font-weight:700}
+.deadline div+div{margin-top:5px}
+
+/* ---------- section label ---------- */
+.seclabel{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:34px 0 12px;display:flex;align-items:center;gap:10px;
+}
+.seclabel::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* ---------- card ---------- */
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:18px 20px;margin-bottom:14px;
+}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.tag{
+  font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--muted);
+}
+.title{font-size:16.5px;font-weight:700;margin:7px 0 3px;letter-spacing:-.01em}
+.sub{font-size:12.5px;color:var(--muted);line-height:1.55}
+.sub .sep{opacity:.4;margin:0 6px}
+
+/* ---------- signal ---------- */
+.signal{
+  font-size:13px;font-weight:700;padding:6px 13px;border-radius:999px;white-space:nowrap;flex:none;
+}
+.s-buy{background:var(--buy-bg);color:var(--buy)}
+.s-wait{background:var(--wait-bg);color:var(--wait)}
+.s-hurry{background:var(--hurry-bg);color:var(--hurry)}
+.s-idle{background:var(--idle-bg);color:var(--idle)}
+
+/* ---------- signature: range band ---------- */
+.band-wrap{margin:20px 0 6px}
+.band{
+  position:relative;height:34px;border-radius:6px;
+  background:linear-gradient(90deg,var(--buy-bg) 0%,#f2f4f6 55%,var(--hurry-bg) 100%);
+  border:1px solid var(--line-soft);
+}
+.band .tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.band .mark{
+  position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--ink);border-radius:2px;
+  transition:left .25s ease;
+}
+.band .target{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--wait);opacity:.8}
+.band-ends{
+  display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:11px;color:var(--muted);margin-top:6px;
+}
+.band-legend{font-size:11.5px;color:var(--muted);margin-top:9px}
+.band-legend b{color:var(--ink);font-weight:600}
+
+/* ---------- metrics ---------- */
+.metrics{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));
+  gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);
+  border-radius:8px;overflow:hidden;margin-top:16px;
+}
+.metric{background:var(--surface);padding:11px 13px}
+.metric .k{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:3px;
+}
+.metric .v{font-size:16px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em}
+.metric .v.small{font-size:13px;font-weight:600}
+.metric .v.up{color:var(--hurry)}
+.metric .v.down{color:var(--buy)}
+
+/* ---------- today input row ---------- */
+.today{
+  display:flex;align-items:center;gap:9px;margin-top:16px;
+  padding-top:15px;border-top:1px dashed var(--line);flex-wrap:wrap;
+}
+.today label{font-size:12.5px;color:var(--muted);flex:none}
+input[type=number],input[type=text],input[type=date],select{
+  font-family:var(--sans);font-size:14px;padding:8px 10px;
+  border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);
+  min-width:0;
+}
+input[type=number]{font-family:var(--mono);text-align:right;width:130px}
+input::placeholder{color:#aab4be}
+
+.actions{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.linkbtn{
+  font-size:12.5px;color:var(--ink-soft);text-decoration:none;border:1px solid var(--line);
+  border-radius:6px;padding:6px 11px;background:var(--surface);
+}
+.linkbtn:hover{border-color:var(--ink)}
+
+/* ---------- history ---------- */
+.hist{margin-top:14px;border-top:1px solid var(--line-soft);padding-top:12px}
+.hist table{width:100%;border-collapse:collapse;font-size:12.5px}
+.hist th{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;text-align:left;padding:0 8px 6px 0;
+}
+.hist td{padding:5px 8px 5px 0;border-top:1px solid var(--line-soft);color:var(--ink-soft)}
+.hist td.num{font-family:var(--mono);text-align:right;font-weight:600;color:var(--ink)}
+.hist td.act{text-align:right;width:1%}
+
+/* ---------- suggestion ---------- */
+.suggest{
+  margin-top:14px;background:#f8f9fb;border:1px dashed var(--line);
+  border-radius:8px;padding:11px 14px;font-size:12.5px;color:var(--ink-soft);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.suggest b{font-family:var(--mono);color:var(--ink)}
+
+/* ---------- 오늘 확인 큐 ---------- */
+.queue{border-color:var(--ink);padding:6px 20px 16px}
+.qrow{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:13px 0;border-bottom:1px solid var(--line-soft);
+}
+.qrow:last-child{border-bottom:none}
+.qname{font-weight:600;font-size:14px;flex:1;min-width:150px}
+.qname span{display:block;font-weight:400;font-size:11.5px;color:var(--muted);margin-top:2px}
+.qopen{
+  font-size:12.5px;text-decoration:none;background:var(--ink);color:#fff;
+  border-radius:6px;padding:7px 13px;font-weight:600;white-space:nowrap;
+}
+.qopen:hover{background:#0b1a2a}
+.qdone{
+  font-size:12.5px;color:var(--buy);background:var(--buy-bg);
+  border-radius:999px;padding:5px 12px;font-weight:600;
+}
+.qhint{font-size:12.5px;color:var(--muted);padding:12px 0 4px}
+
+/* ---------- empty ---------- */
+.empty{
+  background:var(--surface);border:1px dashed var(--line);border-radius:10px;
+  padding:44px 26px;text-align:center;color:var(--muted);
+}
+.empty h3{color:var(--ink);font-size:16px;margin:0 0 7px}
+.empty p{margin:0 0 18px;font-size:13.5px}
+
+/* ---------- form ---------- */
+.form{background:var(--surface);border:1px solid var(--ink);border-radius:10px;padding:22px;margin-bottom:22px}
+.form h2{font-size:15px;margin:0 0 4px}
+.form .hint{font-size:12.5px;color:var(--muted);margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:13px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11.5px;color:var(--muted);font-weight:500}
+.field .opt{opacity:.6}
+.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:15px;font-size:13px;color:var(--ink-soft)}
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.form-foot{display:flex;gap:9px;margin-top:20px;padding-top:17px;border-top:1px solid var(--line-soft)}
+.err{color:var(--hurry);font-size:12.5px;margin-top:11px;display:none}
+
+.foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.foot p{margin:0 0 5px}
+
+@media (max-width:560px){
+  .wrap{padding:22px 14px 60px}
+  .actions{margin-left:0;width:100%}
+  input[type=number]{width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <span class="eyebrow">Price Ledger</span>
+      <h1>가격 추적기</h1>
+    </div>
+    <div class="tools">
+      <button class="btn" id="btnAdd">항목 추가</button>
+      <button class="btn" id="btnExport">내보내기</button>
+      <button class="btn" id="btnImport">불러오기</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </div>
+  </div>
+  <p class="strip"><span class="dot"></span><span id="storageNote">기록은 이 브라우저에만 저장됩니다. 외부로 전송되지 않습니다.</span></p>
+
+  <div id="crash" style="display:none;background:#fbeae6;border-left:3px solid #b4402b;padding:13px 16px;margin-bottom:20px;border-radius:0 7px 7px 0;font-size:13px;color:#8a2f1e;line-height:1.65"></div>
+
+  <div id="deadlines"></div>
+  <div id="formSlot"></div>
+  <div id="todayPanel"></div>
+  <div id="list"></div>
+
+  <div class="foot">
+    <p>가격은 조회 조건이 같을 때만 비교할 수 있습니다. 항목마다 출처와 조건을 고정하고 같은 방식으로 조회한 값만 기록하세요.</p>
+    <p>기록이 5건 미만이면 신호를 표시하지 않습니다. 표본이 적을 때의 판단은 근거가 없습니다.</p>
+    <p>브라우저 데이터를 지우면 기록이 사라집니다. 내보내기로 주기적으로 백업하세요.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ 오류를 화면에 표시 ============ */
+function crash(msg){
+  var box = document.getElementById("crash");
+  if(!box){ alert("오류: "+msg); return; }
+  box.style.display = "block";
+  box.innerHTML = "<b>문제가 발생했습니다.</b><br>" + String(msg)
+    + "<br><br><button id='crashReset' style=\"font:inherit;cursor:pointer;padding:6px 12px;"
+    + "border:1px solid #b4402b;background:#fff;color:#b4402b;border-radius:6px\">"
+    + "저장된 데이터 초기화</button>";
+  var b = document.getElementById("crashReset");
+  if(b) b.onclick = function(){
+    if(confirm("이 브라우저에 저장된 추적 기록을 모두 지웁니다. 계속할까요?")){
+      try{ localStorage.removeItem(KEY); }catch(e){}
+      location.reload();
+    }
+  };
+}
+window.onerror = function(m,src,line){ crash(m + " (line " + line + ")"); };
+
+/* ============ 저장소 ============ */
+var KEY = "priceLedger.v1";
+var memoryFallback = null;
+var storageOK = true;
+
+/* 저장된 데이터가 깨져 있어도 화면이 죽지 않도록 모양을 검사하고 고친다 */
+function repair(data){
+  if(!data || typeof data !== "object" || !Array.isArray(data.items)){
+    return { version:1, items:[] };
+  }
+  data.items = data.items.filter(function(it){
+    return it && typeof it === "object" && it.id;
+  }).map(function(it){
+    if(!Array.isArray(it.records)) it.records = [];
+    it.records = it.records.filter(function(r){
+      return r && typeof r.price === "number" && isFinite(r.price) && r.date;
+    });
+    if(!it.name) it.name = "(이름 없음)";
+    if(it.type !== "hotel") it.type = "flight";
+    if(it.target != null && !isFinite(Number(it.target))) it.target = null;
+    return it;
+  });
+  return data;
+}
+
+function load(){
+  var raw;
+  try{
+    raw = localStorage.getItem(KEY);
+  }catch(e){
+    storageOK = false;
+    var note = document.getElementById("storageNote");
+    if(note) note.textContent =
+      "이 환경에서는 저장이 지원되지 않습니다. GitHub Pages에 올린 뒤 사용하세요.";
+    return memoryFallback || { version:1, items:[] };
+  }
+  if(!raw) return { version:1, items:[] };
+  try{
+    return repair(JSON.parse(raw));
+  }catch(e){
+    return { version:1, items:[] };
+  }
+}
+function save(){
+  memoryFallback = state;
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+
+var state = load();
+
+/* ============ 유틸 ============ */
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function today(){
+  var d=new Date(), p=function(n){return String(n).padStart(2,"0")};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+}
+function won(n){ return Number(n).toLocaleString("ko-KR"); }
+function daysBetween(a,b){
+  var x=new Date(a+"T00:00:00"), y=new Date(b+"T00:00:00");
+  return Math.round((y-x)/86400000);
+}
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function safeUrl(u){
+  if(!u) return "";
+  return /^https?:\/\//i.test(u.trim()) ? u.trim() : "";
+}
+function keyDate(it){ return it.type==="flight" ? it.depDate : it.checkIn; }
+
+/* 링크를 직접 지정하지 않았으면 조건으로 검색 링크를 만들어 준다 */
+function autoUrl(it){
+  var given = safeUrl(it.url);
+  if(given) return { url:given, auto:false };
+  var q;
+  if(it.type==="flight"){
+    if(!it.from || !it.to) return { url:"", auto:false };
+    q = "Flights from "+it.from+" to "+it.to;
+    if(it.depDate) q += " on "+it.depDate;
+    if(it.roundTrip && it.retDate) q += " through "+it.retDate;
+    return { url:"https://www.google.com/travel/flights?q="+encodeURIComponent(q), auto:true };
+  }
+  q = [it.hotelName, it.region].filter(Boolean).join(" ");
+  if(!q) return { url:"", auto:false };
+  return { url:"https://www.google.com/travel/search?q="+encodeURIComponent(q), auto:true };
+}
+
+function todayDone(it){
+  var t = today();
+  for(var i=0;i<it.records.length;i++){ if(it.records[i].date===t) return true; }
+  return false;
+}
+
+/* ============ 분석 ============ */
+function analyze(it){
+  var recs = it.records.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var n = recs.length;
+  var out = { n:n, ready:n>=5 };
+  if(!n){
+    out.signal = { cls:"s-idle", text:"기록 없음",
+                   why:"아직 기록이 없습니다. 오늘 가격부터 입력하세요" };
+    return out;
+  }
+
+  var prices = recs.map(function(r){ return r.price; });
+  var cur = prices[n-1];
+  out.cur = cur;
+  out.min = Math.min.apply(null,prices);
+  out.max = Math.max.apply(null,prices);
+  out.avg = Math.round(prices.reduce(function(a,b){return a+b},0)/n);
+
+  // 백분위: 현재가보다 싼 기록의 비율 (낮을수록 유리)
+  if(n>1){
+    var below = prices.filter(function(p){ return p<cur; }).length;
+    out.pct = Math.round(below/(n-1)*100);
+  } else out.pct = null;
+
+  // 추세: 최근 3건의 방향
+  if(n>=3){
+    var last3 = prices.slice(-3);
+    var diff = last3[2]-last3[0];
+    out.trend = diff<0 ? "down" : (diff>0 ? "up" : "flat");
+    out.trendAmt = Math.abs(diff);
+  } else out.trend = null;
+
+  var kd = keyDate(it);
+  out.daysLeft = kd ? daysBetween(today(), kd) : null;
+
+  // 목표가 제안 (기록 10건 이상 & 목표가 미설정)
+  if(n>=10 && !it.target){
+    var sorted = prices.slice().sort(function(a,b){return a-b});
+    var idx = Math.floor((sorted.length-1)*0.25);
+    out.suggestTarget = Math.round(sorted[idx]/1000)*1000;
+  }
+
+  out.signal = decide(it,out);
+  return out;
+}
+
+/* 보수적 규칙: "사세요"는 근거가 분명할 때만 */
+function decide(it,a){
+  if(!a.ready) return { cls:"s-idle", text:"데이터 수집 중", why:"기록 "+a.n+"건 · 5건부터 신호를 표시합니다" };
+
+  var d = a.daysLeft, p = a.pct;
+
+  if(d!=null && d<0)
+    return { cls:"s-idle", text:"지난 일정", why:"기준일이 지났습니다" };
+
+  if(it.target && a.cur<=it.target)
+    return { cls:"s-buy", text:"사세요", why:"미리 정해둔 목표가 "+won(it.target)+"원 이하입니다" };
+
+  if(d!=null && d<=7){
+    if(p!=null && p<=25)
+      return { cls:"s-buy", text:"사세요", why:"출발 임박 · 기록 대비 하위 "+p+"% 수준입니다" };
+    return { cls:"s-hurry", text:"서두르세요", why:"기준일까지 "+d+"일 · 더 기다릴 여유가 없습니다" };
+  }
+
+  if(p!=null && p<=15 && a.trend!=="down")
+    return { cls:"s-buy", text:"사세요", why:"기록 중 하위 "+p+"% · 하락세도 멈췄습니다" };
+
+  if(p!=null && p<=25 && d!=null && d<=21)
+    return { cls:"s-buy", text:"사세요", why:"하위 "+p+"% · 남은 기간 "+d+"일을 감안하면 충분합니다" };
+
+  var why;
+  if(a.trend==="down") why = "하락하는 중입니다 · 며칠 더 지켜볼 여지가 있습니다";
+  else if(p!=null && p>=70) why = "기록 대비 하위 "+p+"% · 평소보다 비쌉니다";
+  else why = "판단을 내릴 만큼 뚜렷한 신호가 없습니다";
+  return { cls:"s-wait", text:"지켜보세요", why:why };
+}
+
+/* ============ 렌더 ============ */
+function itemSub(it){
+  var parts=[];
+  if(it.type==="flight"){
+    if(it.from||it.to) parts.push(esc(it.from)+" → "+esc(it.to));
+    if(it.airline) parts.push(esc(it.airline));
+    if(it.depDate) parts.push(esc(it.depDate)+(it.retDate?" ~ "+esc(it.retDate):""));
+    parts.push(it.roundTrip?"왕복":"편도");
+    parts.push(it.mode==="lowest"?"그날 최저가":"특정 편");
+    parts.push(it.baggage?"수하물 포함":"수하물 미포함");
+  }else{
+    if(it.hotelName) parts.push(esc(it.hotelName));
+    if(it.region) parts.push(esc(it.region));
+    if(it.checkIn) parts.push(esc(it.checkIn)+" ~ "+esc(it.checkOut||""));
+    if(it.roomType) parts.push(esc(it.roomType));
+    if(it.guests) parts.push(esc(it.guests)+"인");
+    parts.push(it.breakfast?"조식 포함":"조식 미포함");
+  }
+  if(it.source) parts.push("출처 "+esc(it.source));
+  return parts.join('<span class="sep">·</span>');
+}
+
+function bandHtml(it,a){
+  if(!a.n) return "";
+  var lo=a.min, hi=a.max, span=hi-lo;
+  var pos = span>0 ? ((a.cur-lo)/span)*100 : 50;
+  var tgt = (it.target && span>0) ? ((it.target-lo)/span)*100 : null;
+  var tgtHtml = (tgt!=null && tgt>=0 && tgt<=100)
+    ? '<div class="target" style="left:'+tgt.toFixed(1)+'%"></div>' : "";
+  return ''
+   +'<div class="band-wrap">'
+   +  '<div class="band">'
+   +    '<div class="tick" style="left:25%"></div>'
+   +    '<div class="tick" style="left:50%"></div>'
+   +    '<div class="tick" style="left:75%"></div>'
+   +    tgtHtml
+   +    '<div class="mark" style="left:'+pos.toFixed(1)+'%"></div>'
+   +  '</div>'
+   +  '<div class="band-ends"><span>최저 '+won(lo)+'</span><span>최고 '+won(hi)+'</span></div>'
+   +  '<div class="band-legend">'+esc(a.signal.why)+'</div>'
+   +'</div>';
+}
+
+function metricsHtml(a){
+  if(!a.n) return "";
+  var t = a.trend
+    ? (a.trend==="down" ? '<span class="v small down">↓ '+won(a.trendAmt)+'</span>'
+      : a.trend==="up" ? '<span class="v small up">↑ '+won(a.trendAmt)+'</span>'
+      : '<span class="v small">보합</span>')
+    : '<span class="v small">—</span>';
+  return ''
+   +'<div class="metrics">'
+   + '<div class="metric"><span class="k">현재가</span><span class="v">'+won(a.cur)+'</span></div>'
+   + '<div class="metric"><span class="k">백분위</span><span class="v">'+(a.pct==null?"—":"하위 "+a.pct+"%")+'</span></div>'
+   + '<div class="metric"><span class="k">평균</span><span class="v small">'+won(a.avg)+'</span></div>'
+   + '<div class="metric"><span class="k">최근 추세</span>'+t+'</div>'
+   + '<div class="metric"><span class="k">남은 일수</span><span class="v small">'+(a.daysLeft==null?"—":a.daysLeft+"일")+'</span></div>'
+   + '<div class="metric"><span class="k">기록</span><span class="v small">'+a.n+'건</span></div>'
+   +'</div>';
+}
+
+function histHtml(it){
+  if(!it.records.length) return "";
+  var rows = it.records.slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,8);
+  var body = rows.map(function(r){
+    return '<tr><td>'+esc(r.date)+'</td><td class="num">'+won(r.price)+'</td>'
+      +'<td>'+esc(r.note||"")+'</td>'
+      +'<td class="act"><button class="btn-ghost" data-del="'+it.id+'|'+r.id+'">삭제</button></td></tr>';
+  }).join("");
+  var more = it.records.length>8 ? '<div class="sub" style="margin-top:7px">최근 8건만 표시 · 전체 '+it.records.length+'건</div>' : "";
+  return '<div class="hist"><table><thead><tr><th>날짜</th><th style="text-align:right">가격</th><th>메모</th><th></th></tr></thead>'
+    +'<tbody>'+body+'</tbody></table>'+more+'</div>';
+}
+
+function renderQueue(){
+  var slot = document.getElementById("todayPanel");
+  if(!slot) return;
+  if(!state.items.length){ slot.innerHTML=""; return; }
+
+  var pending = state.items.filter(function(it){ return !todayDone(it); });
+  var done = state.items.length - pending.length;
+
+  if(!pending.length){
+    slot.innerHTML = '<div class="seclabel">오늘 확인 · 완료</div>'
+      + '<div class="card queue"><div class="qhint">오늘 '+done+'건 모두 기록했습니다. 아래에서 추이를 확인하세요.</div></div>';
+    return;
+  }
+
+  var rows = pending.map(function(it){
+    var link = autoUrl(it);
+    var open = link.url
+      ? '<a class="qopen" href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">가격 열기</a>'
+      : '<span class="sub">링크 없음</span>';
+    var when = keyDate(it) ? esc(keyDate(it)) : "";
+    var last = it.records.length
+      ? "직전 "+won(it.records[it.records.length-1].price)
+      : "기록 없음";
+    return '<div class="qrow">'
+      + '<div class="qname">'+esc(it.name)+'<span>'+when+' · '+last+'</span></div>'
+      + open
+      + '<input type="number" id="qin-'+it.id+'" placeholder="원" min="0" step="100" style="width:120px">'
+      + '<button class="btn" data-qrec="'+it.id+'">기록</button>'
+      + '</div>';
+  }).join("");
+
+  slot.innerHTML = '<div class="seclabel">오늘 확인 · '+pending.length+'건 남음</div>'
+    + '<div class="card queue">' + rows
+    + '<div class="qhint">가격 열기 → 숫자 확인 → 칸에 입력 → Enter. 항목당 15초면 됩니다.</div></div>';
+}
+
+function render(){
+  renderDeadlines();
+  renderQueue();
+  var list = document.getElementById("list");
+  if(!list){ crash("목록 영역(id=list)을 찾지 못했습니다. 업로드된 파일이 온전한지 확인하세요."); return; }
+  if(!state || !Array.isArray(state.items)) state = { version:1, items:[] };
+
+  if(!state.items.length){
+    list.innerHTML = '<div class="empty"><h3>추적할 항목을 등록하세요</h3>'
+      +'<p>실제로 살 계획이 있는 3~5개만 등록하는 편이 오래 갑니다.</p>'
+      +'<button class="btn-primary" id="emptyAdd">항목 추가</button></div>';
+    var ea=document.getElementById("emptyAdd");
+    if(ea) ea.onclick=function(){ openForm(); };
+    return;
+  }
+
+  var html = state.items.map(function(it){
+    var a = analyze(it);
+    if(!a.signal) a.signal = { cls:"s-idle", text:"—", why:"" };
+    var url = autoUrl(it).url;
+    var sug = a.suggestTarget
+      ? '<div class="suggest">기록 '+a.n+'건 기준 하위 25% 지점은 <b>'+won(a.suggestTarget)+'원</b>입니다.'
+        +'<button class="btn" data-settarget="'+it.id+'|'+a.suggestTarget+'">목표가로 설정</button></div>'
+      : "";
+    var targetLine = it.target
+      ? '<div class="sub" style="margin-top:6px">목표가 '+won(it.target)+'원</div>' : "";
+
+    return ''
+     +'<div class="card">'
+     + '<div class="card-top">'
+     +   '<div style="flex:1;min-width:210px">'
+     +     '<span class="tag">'+(it.type==="flight"?"Flight":"Hotel")+'</span>'
+     +     '<div class="title">'+esc(it.name)+'</div>'
+     +     '<div class="sub">'+itemSub(it)+'</div>'
+     +     targetLine
+     +   '</div>'
+     +   '<div class="signal '+a.signal.cls+'">'+esc(a.signal.text)+'</div>'
+     + '</div>'
+     + bandHtml(it,a)
+     + metricsHtml(a)
+     + sug
+     + '<div class="today">'
+     +   '<label for="in-'+it.id+'">오늘 가격</label>'
+     +   '<input type="number" id="in-'+it.id+'" placeholder="원" min="0" step="100">'
+     +   '<input type="text" id="note-'+it.id+'" placeholder="메모 (편명·조건 등)" style="flex:1;min-width:120px">'
+     +   '<button class="btn-primary" data-rec="'+it.id+'">기록</button>'
+     +   '<div class="actions">'
+     +     (url?'<a class="linkbtn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">검색 열기</a>':"")
+     +     '<button class="btn-ghost" data-delitem="'+it.id+'">항목 삭제</button>'
+     +   '</div>'
+     + '</div>'
+     + histHtml(it)
+     +'</div>';
+  }).join("");
+
+  list.innerHTML = '<div class="seclabel">추적 중 · '+state.items.length+'건</div>'+html;
+}
+
+function renderDeadlines(){
+  var slot = document.getElementById("deadlines");
+  var msgs = state.items.filter(function(it){
+    if(it.type!=="hotel" || !it.freeCancelUntil) return false;
+    var d = daysBetween(today(), it.freeCancelUntil);
+    return d>=0 && d<=5;
+  }).map(function(it){
+    var d = daysBetween(today(), it.freeCancelUntil);
+    return '<div><b>'+esc(it.name)+'</b> — 무료 취소 마감까지 '+(d===0?"오늘":d+"일")
+      +' ('+esc(it.freeCancelUntil)+'). 더 싼 예약을 찾았다면 지금 갈아타세요.</div>';
+  });
+  slot.innerHTML = msgs.length ? '<div class="deadline">'+msgs.join("")+'</div>' : "";
+}
+
+/* ============ 항목 등록 폼 ============ */
+function openForm(){
+  var slot = document.getElementById("formSlot");
+  if(!slot){ crash("입력 폼 영역(id=formSlot)을 찾지 못했습니다. 업로드된 파일이 온전한지 확인하세요."); return; }
+  slot.innerHTML = ''
+   +'<div class="form">'
+   + '<h2>항목 추가</h2>'
+   + '<p class="hint">조건은 한 번만 입력합니다. 이후에는 같은 조건으로 조회한 가격만 기록하세요.</p>'
+   + '<div class="grid">'
+   +   '<div class="field"><label for="f-type">유형</label>'
+   +     '<select id="f-type"><option value="flight">항공권</option><option value="hotel">호텔</option></select></div>'
+   +   '<div class="field"><label for="f-name">이름</label>'
+   +     '<input type="text" id="f-name" placeholder="후쿠오카 9월 여행"></div>'
+   +   '<div class="field"><label for="f-source">출처</label>'
+   +     '<input type="text" id="f-source" placeholder="스카이스캐너 / 항공사 직판"></div>'
+   +   '<div class="field"><label for="f-url">검색 링크 <span class="opt">(비워두면 자동 생성)</span></label>'
+   +     '<input type="text" id="f-url" placeholder="https://..."></div>'
+   +   '<div class="field"><label for="f-target">목표가 <span class="opt">(선택 · 비워두면 나중에 제안)</span></label>'
+   +     '<input type="number" id="f-target" placeholder="원" min="0" step="1000"></div>'
+   + '</div>'
+   + '<div id="typeFields"></div>'
+   + '<div class="err" id="formErr"></div>'
+   + '<div class="form-foot">'
+   +   '<button class="btn-primary" id="f-save">저장</button>'
+   +   '<button class="btn" id="f-cancel">취소</button>'
+   + '</div>'
+   +'</div>';
+
+  document.getElementById("f-type").onchange = typeFields;
+  document.getElementById("f-cancel").onclick = function(){ slot.innerHTML=""; };
+  document.getElementById("f-save").onclick = saveItem;
+  typeFields();
+  document.getElementById("f-name").focus();
+}
+
+function typeFields(){
+  var t = document.getElementById("f-type").value;
+  var box = document.getElementById("typeFields");
+  if(t==="flight"){
+    box.innerHTML = '<div class="grid" style="margin-top:13px">'
+     +'<div class="field"><label for="f-from">출발지 <span class="opt">(공항코드 권장)</span></label><input type="text" id="f-from" placeholder="ICN"></div>'
+     +'<div class="field"><label for="f-to">도착지 <span class="opt">(공항코드 권장)</span></label><input type="text" id="f-to" placeholder="FUK"></div>'
+     +'<div class="field"><label for="f-airline">항공사</label><input type="text" id="f-airline" placeholder="제주항공"></div>'
+     +'<div class="field"><label for="f-dep">출발일</label><input type="date" id="f-dep"></div>'
+     +'<div class="field"><label for="f-ret">귀국일 <span class="opt">(왕복)</span></label><input type="date" id="f-ret"></div>'
+     +'<div class="field"><label for="f-mode">추적 방식</label><select id="f-mode">'
+     +'<option value="specific">특정 편 (시간대 고정)</option><option value="lowest">그날 최저가</option></select></div>'
+     +'</div>'
+     +'<div class="checks">'
+     +'<label><input type="checkbox" id="f-rt" checked> 왕복</label>'
+     +'<label><input type="checkbox" id="f-bag"> 위탁수하물 포함 조건</label>'
+     +'</div>';
+  }else{
+    box.innerHTML = '<div class="grid" style="margin-top:13px">'
+     +'<div class="field"><label for="f-hotel">호텔명</label><input type="text" id="f-hotel" placeholder="○○ 호텔"></div>'
+     +'<div class="field"><label for="f-region">지역</label><input type="text" id="f-region" placeholder="후쿠오카 하카타"></div>'
+     +'<div class="field"><label for="f-in">체크인</label><input type="date" id="f-in"></div>'
+     +'<div class="field"><label for="f-out">체크아웃</label><input type="date" id="f-out"></div>'
+     +'<div class="field"><label for="f-room">객실 타입</label><input type="text" id="f-room" placeholder="더블 · 금연"></div>'
+     +'<div class="field"><label for="f-guests">인원</label><input type="number" id="f-guests" value="2" min="1"></div>'
+     +'<div class="field"><label for="f-cancelDate">무료 취소 마감일 <span class="opt">(선택)</span></label><input type="date" id="f-cancelDate"></div>'
+     +'</div>'
+     +'<div class="checks"><label><input type="checkbox" id="f-bf"> 조식 포함 조건</label></div>';
+  }
+}
+
+function val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }
+function chk(id){ var el=document.getElementById(id); return el?el.checked:false; }
+
+function saveItem(){
+  var err = document.getElementById("formErr");
+  var type = val("f-type");
+  var name = val("f-name");
+  if(!name){ err.textContent="이름을 입력하세요. 목록에서 항목을 구분하는 데 씁니다."; err.style.display="block"; return; }
+
+  var it = {
+    id: uid(), type:type, name:name,
+    source: val("f-source"), url: val("f-url"),
+    target: val("f-target") ? Number(val("f-target")) : null,
+    records: []
+  };
+
+  if(type==="flight"){
+    if(!val("f-dep")){ err.textContent="출발일을 입력하세요. 남은 일수 계산에 필요합니다."; err.style.display="block"; return; }
+    it.from=val("f-from"); it.to=val("f-to"); it.airline=val("f-airline");
+    it.depDate=val("f-dep"); it.retDate=val("f-ret");
+    it.mode=val("f-mode"); it.roundTrip=chk("f-rt"); it.baggage=chk("f-bag");
+  }else{
+    if(!val("f-in")){ err.textContent="체크인 날짜를 입력하세요. 남은 일수 계산에 필요합니다."; err.style.display="block"; return; }
+    it.hotelName=val("f-hotel"); it.region=val("f-region");
+    it.checkIn=val("f-in"); it.checkOut=val("f-out");
+    it.roomType=val("f-room"); it.guests=val("f-guests");
+    it.breakfast=chk("f-bf"); it.freeCancelUntil=val("f-cancelDate");
+  }
+
+  state.items.push(it);
+  save();
+  document.getElementById("formSlot").innerHTML="";
+  render();
+}
+
+/* ============ 이벤트 ============ */
+document.getElementById("btnAdd").onclick = openForm;
+
+document.addEventListener("click", function(e){
+  var t = e.target;
+  if(!t.dataset) return;
+
+  if(t.dataset.qrec){
+    var qid = t.dataset.qrec;
+    var qi = document.getElementById("qin-"+qid);
+    var qv = qi ? Number(qi.value) : NaN;
+    if(!qi || !qi.value || isNaN(qv) || qv<=0){ if(qi) qi.focus(); return; }
+    var qit = state.items.filter(function(x){return x.id===qid})[0];
+    if(!qit) return;
+    qit.records.push({ id:uid(), date:today(), price:Math.round(qv), note:"" });
+    save(); render();
+    var next = document.querySelector('[id^="qin-"]');
+    if(next) next.focus();
+  }
+
+  if(t.dataset.rec){
+    var id = t.dataset.rec;
+    var input = document.getElementById("in-"+id);
+    var noteEl = document.getElementById("note-"+id);
+    var v = Number(input.value);
+    if(!input.value || isNaN(v) || v<=0){ input.focus(); return; }
+    var it = state.items.filter(function(x){return x.id===id})[0];
+    if(!it) return;
+    it.records.push({ id:uid(), date:today(), price:Math.round(v), note:noteEl?noteEl.value.trim():"" });
+    save(); render();
+  }
+
+  if(t.dataset.del){
+    var parts = t.dataset.del.split("|");
+    var item = state.items.filter(function(x){return x.id===parts[0]})[0];
+    if(item){
+      item.records = item.records.filter(function(r){ return r.id!==parts[1]; });
+      save(); render();
+    }
+  }
+
+  if(t.dataset.delitem){
+    var di = t.dataset.delitem;
+    var target = state.items.filter(function(x){return x.id===di})[0];
+    if(target && confirm('"'+target.name+'" 항목과 기록 '+target.records.length+'건을 모두 삭제합니다. 되돌릴 수 없습니다.')){
+      state.items = state.items.filter(function(x){ return x.id!==di; });
+      save(); render();
+    }
+  }
+
+  if(t.dataset.settarget){
+    var sp = t.dataset.settarget.split("|");
+    var si = state.items.filter(function(x){return x.id===sp[0]})[0];
+    if(si){ si.target = Number(sp[1]); save(); render(); }
+  }
+});
+
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Enter") return;
+  var id = e.target.id||"";
+  if(id.indexOf("qin-")===0){
+    var qb = document.querySelector('[data-qrec="'+id.slice(4)+'"]');
+    if(qb) qb.click();
+    return;
+  }
+  if(id.indexOf("in-")===0 || id.indexOf("note-")===0){
+    var itemId = id.replace(/^(in-|note-)/,"");
+    var btn = document.querySelector('[data-rec="'+itemId+'"]');
+    if(btn) btn.click();
+  }
+});
+
+/* ============ 내보내기 / 불러오기 ============ */
+document.getElementById("btnExport").onclick = function(){
+  var blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "price-ledger-"+today()+".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+document.getElementById("btnImport").onclick = function(){
+  document.getElementById("fileImport").click();
+};
+
+document.getElementById("fileImport").onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var data;
+    try{
+      data = JSON.parse(reader.result);
+    }catch(err){
+      alert("JSON 형식이 아닙니다. 내보내기로 받은 .json 파일을 선택하세요.\n\n선택한 파일: "+f.name);
+      return;
+    }
+    if(Array.isArray(data)) data = { version:1, items:data };
+    if(!data || !Array.isArray(data.items)){
+      alert("항목 목록을 찾지 못했습니다. 이 도구의 내보내기 파일이 맞는지 확인하세요.\n\n선택한 파일: "+f.name);
+      return;
+    }
+    if(state.items.length && !confirm("현재 기록 "+state.items.length+"건을 불러온 데이터로 교체합니다. 계속할까요?")) return;
+    state = repair(data);
+    save(); render();
+  };
+  reader.readAsText(f);
+  e.target.value = "";
+};
+
+try{ render(); }
+catch(e){ crash("화면을 그리는 중 오류: " + (e && e.message ? e.message : e)); }
+})();
+</script>
+</body>
+</html>
