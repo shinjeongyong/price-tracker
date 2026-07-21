@@ -201,6 +201,9 @@ input::placeholder{color:#aab4be}
   border-radius:6px;padding:7px 13px;font-weight:600;white-space:nowrap;
 }
 .qopen:hover{background:#0b1a2a}
+.qopen.alt{background:var(--surface);color:var(--ink-soft);border:1px solid var(--line)}
+.qopen.alt:hover{background:var(--surface);border-color:var(--ink);color:var(--ink)}
+.qrow .qopen+.qopen{margin-left:-4px}
 .qdone{
   font-size:12.5px;color:var(--buy);background:var(--buy-bg);
   border-radius:999px;padding:5px 12px;font-weight:600;
@@ -365,21 +368,58 @@ function safeUrl(u){
 }
 function keyDate(it){ return it.type==="flight" ? it.depDate : it.checkIn; }
 
-/* 링크를 직접 지정하지 않았으면 조건으로 검색 링크를 만들어 준다 */
-function autoUrl(it){
-  var given = safeUrl(it.url);
-  if(given) return { url:given, auto:false };
-  var q;
+/* 출발 시간대 */
+var SLOT_KO = { morning:"오전 출발", afternoon:"오후 출발", evening:"저녁 출발", night:"심야 출발" };
+var SLOT_Q  = { morning:"morning departure", afternoon:"afternoon departure",
+                evening:"evening departure", night:"late night departure" };
+
+function ymd6(s){
+  if(!s || s.length<10) return "";
+  return s.slice(2,4)+s.slice(5,7)+s.slice(8,10);
+}
+
+/* 항목 조건으로 사이트별 검색 링크를 만든다 */
+function links(it){
+  var out = [];
   if(it.type==="flight"){
-    if(!it.from || !it.to) return { url:"", auto:false };
-    q = "Flights from "+it.from+" to "+it.to;
-    if(it.depDate) q += " on "+it.depDate;
-    if(it.roundTrip && it.retDate) q += " through "+it.retDate;
-    return { url:"https://www.google.com/travel/flights?q="+encodeURIComponent(q), auto:true };
+    if(it.from && it.to){
+      var q = "Flights from "+it.from+" to "+it.to;
+      if(it.depDate) q += " on "+it.depDate;
+      if(it.roundTrip && it.retDate) q += " through "+it.retDate;
+      if(it.slot && SLOT_Q[it.slot]) q += " "+SLOT_Q[it.slot];
+      out.push({ label:"구글 플라이트", url:"https://www.google.com/travel/flights?q="+encodeURIComponent(q) });
+
+      var d1 = ymd6(it.depDate);
+      if(d1){
+        var u = "https://www.skyscanner.co.kr/transport/flights/"
+              + encodeURIComponent(it.from.toLowerCase()) + "/"
+              + encodeURIComponent(it.to.toLowerCase()) + "/" + d1 + "/";
+        if(it.roundTrip && it.retDate){
+          var d2 = ymd6(it.retDate);
+          if(d2) u += d2 + "/";
+        }
+        out.push({ label:"스카이스캐너", url:u });
+      }
+    }
+  }else{
+    var qq = [it.hotelName, it.region].filter(Boolean).join(" ");
+    if(qq){
+      var nq = qq.indexOf("호텔")>=0 ? qq : qq+" 호텔";
+      out.push({ label:"네이버", url:"https://search.naver.com/search.naver?query="+encodeURIComponent(nq) });
+
+      var g = "https://www.google.com/travel/search?q="+encodeURIComponent(qq);
+      if(it.checkIn && it.checkOut) g += "&checkin="+it.checkIn+"&checkout="+it.checkOut;
+      out.push({ label:"구글 호텔", url:g });
+
+      var b = "https://www.booking.com/searchresults.html?ss="+encodeURIComponent(qq);
+      if(it.checkIn && it.checkOut) b += "&checkin="+it.checkIn+"&checkout="+it.checkOut;
+      if(it.guests) b += "&group_adults="+encodeURIComponent(it.guests);
+      out.push({ label:"부킹닷컴", url:b });
+    }
   }
-  q = [it.hotelName, it.region].filter(Boolean).join(" ");
-  if(!q) return { url:"", auto:false };
-  return { url:"https://www.google.com/travel/search?q="+encodeURIComponent(q), auto:true };
+  var own = safeUrl(it.url);
+  if(own) out.unshift({ label:"내 링크", url:own });
+  return out;
 }
 
 function todayDone(it){
@@ -472,6 +512,7 @@ function itemSub(it){
     if(it.from||it.to) parts.push(esc(it.from)+" → "+esc(it.to));
     if(it.airline) parts.push(esc(it.airline));
     if(it.depDate) parts.push(esc(it.depDate)+(it.retDate?" ~ "+esc(it.retDate):""));
+    if(it.slot && SLOT_KO[it.slot]) parts.push(SLOT_KO[it.slot]);
     parts.push(it.roundTrip?"왕복":"편도");
     parts.push(it.mode==="lowest"?"그날 최저가":"특정 편");
     parts.push(it.baggage?"수하물 포함":"수하물 미포함");
@@ -554,11 +595,15 @@ function renderQueue(){
   }
 
   var rows = pending.map(function(it){
-    var link = autoUrl(it);
-    var open = link.url
-      ? '<a class="qopen" href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">가격 열기</a>'
+    var ls = links(it);
+    var open = ls.length
+      ? ls.map(function(l,i){
+          return '<a class="qopen'+(i?' alt':'')+'" href="'+esc(l.url)
+               + '" target="_blank" rel="noopener noreferrer">'+esc(l.label)+'</a>';
+        }).join("")
       : '<span class="sub">링크 없음</span>';
     var when = keyDate(it) ? esc(keyDate(it)) : "";
+    if(it.type==="flight" && it.slot && SLOT_KO[it.slot]) when += " · " + SLOT_KO[it.slot];
     var last = it.records.length
       ? "직전 "+won(it.records[it.records.length-1].price)
       : "기록 없음";
@@ -594,7 +639,10 @@ function render(){
   var html = state.items.map(function(it){
     var a = analyze(it);
     if(!a.signal) a.signal = { cls:"s-idle", text:"—", why:"" };
-    var url = autoUrl(it).url;
+    var linkBtns = links(it).map(function(l){
+      return '<a class="linkbtn" href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer">'
+           + esc(l.label)+'</a>';
+    }).join("");
     var sug = a.suggestTarget
       ? '<div class="suggest">기록 '+a.n+'건 기준 하위 25% 지점은 <b>'+won(a.suggestTarget)+'원</b>입니다.'
         +'<button class="btn" data-settarget="'+it.id+'|'+a.suggestTarget+'">목표가로 설정</button></div>'
@@ -622,7 +670,7 @@ function render(){
      +   '<input type="text" id="note-'+it.id+'" placeholder="메모 (편명·조건 등)" style="flex:1;min-width:120px">'
      +   '<button class="btn-primary" data-rec="'+it.id+'">기록</button>'
      +   '<div class="actions">'
-     +     (url?'<a class="linkbtn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">검색 열기</a>':"")
+     +     linkBtns
      +     '<button class="btn-ghost" data-delitem="'+it.id+'">항목 삭제</button>'
      +   '</div>'
      + '</div>'
@@ -694,6 +742,10 @@ function typeFields(){
      +'<div class="field"><label for="f-ret">귀국일 <span class="opt">(왕복)</span></label><input type="date" id="f-ret"></div>'
      +'<div class="field"><label for="f-mode">추적 방식</label><select id="f-mode">'
      +'<option value="specific">특정 편 (시간대 고정)</option><option value="lowest">그날 최저가</option></select></div>'
+     +'<div class="field"><label for="f-slot">출발 시간대</label><select id="f-slot">'
+     +'<option value="">지정 안 함</option><option value="morning">오전</option>'
+     +'<option value="afternoon">오후</option><option value="evening">저녁</option>'
+     +'<option value="night">심야</option></select></div>'
      +'</div>'
      +'<div class="checks">'
      +'<label><input type="checkbox" id="f-rt" checked> 왕복</label>'
@@ -733,7 +785,8 @@ function saveItem(){
     if(!val("f-dep")){ err.textContent="출발일을 입력하세요. 남은 일수 계산에 필요합니다."; err.style.display="block"; return; }
     it.from=val("f-from"); it.to=val("f-to"); it.airline=val("f-airline");
     it.depDate=val("f-dep"); it.retDate=val("f-ret");
-    it.mode=val("f-mode"); it.roundTrip=chk("f-rt"); it.baggage=chk("f-bag");
+    it.mode=val("f-mode"); it.slot=val("f-slot");
+    it.roundTrip=chk("f-rt"); it.baggage=chk("f-bag");
   }else{
     if(!val("f-in")){ err.textContent="체크인 날짜를 입력하세요. 남은 일수 계산에 필요합니다."; err.style.display="block"; return; }
     it.hotelName=val("f-hotel"); it.region=val("f-region");
